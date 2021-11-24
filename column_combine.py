@@ -107,6 +107,8 @@ def structuredPruneMask(matrix, groups):
     return mask1 & mask2
 
 
+def hello_world():
+    print("hello world")
 """
 example usage of column combine APIs
 

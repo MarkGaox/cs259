@@ -1,3 +1,4 @@
 data/
 push
 __pycache__/
+test.py

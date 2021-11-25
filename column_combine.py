@@ -85,11 +85,8 @@ Return value:
     A filter mask showing which values should be pruned after column combination
 """
 def structuredPruneMask(matrix, groups):
-    # Mask1 filter zero values
-    mask1 = matrix != 0
-
     # Initialize mask2 to all-zero
-    mask2 = np.zeros_like(mask1)
+    mask = np.zeros_like(matrix)
     for group in groups:
         # Slice columns in the group to get submatrix
         submatrix = matrix[:, group]
@@ -102,13 +99,11 @@ def structuredPruneMask(matrix, groups):
         
         # Set these indexes, which correspond to unpruned values
         # in original matrix to "True"
-        mask2[np.arange(mask.shape[0]), max_val_col_idx] = True
+        mask[np.arange(mask.shape[0]), max_val_col_idx] = True
     
-    return mask1 & mask2
+    return mask
 
 
-def hello_world():
-    print("hello world")
 """
 example usage of column combine APIs
 

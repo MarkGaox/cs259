@@ -32,14 +32,21 @@ def get_optimizer(model):
 
 accuracy_loss = nn.CrossEntropyLoss()
 
-class GroupPrune(prune.BasePruningMethod):
+class GroupPruneMethod(prune.BasePruningMethod):
     PRUNING_TYPE = 'unstructured'
     
     def compute_mask(self, t, default_mask):
-        mask = default_mask.clone()
-        # TODO: lower conv2d weights to matrix, feed to column combining
-        # get mask, then reshape mask to conv2d weight mask
+        tensor = default_mask * t
+        matrix = np.array(tensor.reshape([t.shape[0], -1]))
+        groups = columnCombine(matrix)
+        mask = structuredPruneMask(matrix, groups)
+        mask = torch.tensor(mask.reshape(t.shape))
         return mask
+
+
+def group_prune_unstructured(module, name):
+    GroupPruneMethod.apply(module, name)
+    return module
 
 def train(dataloader, model, loss_fn, optimizer, regularization=True, lambda1 = 1e-7):
     model.train()
@@ -60,11 +67,11 @@ def train(dataloader, model, loss_fn, optimizer, regularization=True, lambda1 = 
             for name, module in model.namedModules:
                 if isinstance(module, torch.nn.Conv2d):
                     prune.l1_unstructured(module, name='weight', amount=0.2)
+                    group_prune_untructured(module, name='weight')
 
 
 def test(dataloader, model, loss_fn):
     size = len(dataloader.dataset)
-    i = 0
     model.eval()
     test_loss, correct = 0, 0
     with torch.no_grad():
@@ -72,22 +79,13 @@ def test(dataloader, model, loss_fn):
             pred = model(X)
             test_loss += loss_fn(pred, y).item()
             correct += (pred.argmax(1) == y).type(torch.float).item()
-            i += 1
-            if i==1000:
-                break
-    test_loss /= i
-    correct /=i
+    test_loss /= dataloader.size
+    correct /= dataloader.size
     print("test loss is {}".format(test_loss))
     print("correct rate is {}".format(correct))
 
 
 #train(train_dataloader, model, accuracy_loss, \
 #        optimizer=optimizer)
-hello_world()
 #test(test_dataloader, model, accuracy_loss)
 
-#for param in model.parameters():
-#    print(type(param), param.size())
-#print("named modules:\n")
-#for name, module in model.named_modules():
-#    print(name, module)

@@ -18,7 +18,7 @@ def load_data(task_type):
     else:
         raise ValueError
     data = datasets.CIFAR10(root='./data', train=train, download=True, transform=ToTensor(),)
-    dataloader = Dataloader(data, batch_size=batch_size)
+    dataloader = DataLoader(data, batch_size=batch_size)
     return dataloader
 
 def load_model():
@@ -33,20 +33,40 @@ def get_optimizer(model):
 accuracy_loss = nn.CrossEntropyLoss()
 
 class GroupPruneMethod(prune.BasePruningMethod):
-    PRUNING_TYPE = 'unstructured'
-    
+    PRUNING_TYPE = 'structured'
+    dim = -1
+
     def compute_mask(self, t, default_mask):
-        tensor = default_mask * t
-        matrix = np.array(tensor.reshape([t.shape[0], -1]))
+        matrix = t.reshape([t.shape[0], -1]).detach().numpy()
         groups = columnCombine(matrix)
         mask = structuredPruneMask(matrix, groups)
         mask = torch.tensor(mask.reshape(t.shape))
         return mask
 
 
-def group_prune_unstructured(module, name):
+def group_prune_structured(module, name):
     GroupPruneMethod.apply(module, name)
     return module
+
+"""
+Test how to correctly use custom prune method
+
+class TrivialPruneMethod(prune.BasePruningMethod):
+    PRUNING_TYPE = 'structured'
+    dim = -1
+    def compute_mask(self, t, default_mask):
+        matrix = t.reshape([t.shape[0], -1]).detach().numpy()
+        mask = np.zeros_like(matrix)
+        mask[:, t.shape[1]**2:t.shape[1]**2 + 3] = 1
+        #print("matrix shape mask:\n", mask)
+        mask = torch.tensor(mask.reshape(t.shape))
+        #print("tensor shape mask:\n", mask)
+        return mask
+
+def trivial_prune_structured(module, name):
+    TrivialPruneMethod.apply(module, name)
+    return module
+"""
 
 def train(dataloader, model, loss_fn, optimizer, regularization=True, lambda1 = 1e-7):
     model.train()
@@ -63,12 +83,16 @@ def train(dataloader, model, loss_fn, optimizer, regularization=True, lambda1 = 
             optimizer.step()
             if (batch % 10 ==0):
                 print("pass {}, loss is {}".format(batch, loss.item()))
-        if epoch == epoches/2:
-            for name, module in model.namedModules:
+                break
+        if epoch == epoches/2 or True:
+            for name, module in model.named_modules():
                 if isinstance(module, torch.nn.Conv2d):
                     prune.l1_unstructured(module, name='weight', amount=0.2)
-                    group_prune_untructured(module, name='weight')
-
+                    print("named buffer numbers\n", len(list(module.named_buffers())))
+                    group_prune_structured(module, name='weight')
+                    # trivial_prune_structured(module, name='weight')
+                    print("named buffer numbers\n", len(list(module.named_buffers())))
+        break
 
 def test(dataloader, model, loss_fn):
     size = len(dataloader.dataset)
@@ -79,13 +103,16 @@ def test(dataloader, model, loss_fn):
             pred = model(X)
             test_loss += loss_fn(pred, y).item()
             correct += (pred.argmax(1) == y).type(torch.float).item()
-    test_loss /= dataloader.size
-    correct /= dataloader.size
+    test_loss /= size
+    correct /= size
     print("test loss is {}".format(test_loss))
     print("correct rate is {}".format(correct))
 
 
-#train(train_dataloader, model, accuracy_loss, \
-#        optimizer=optimizer)
-#test(test_dataloader, model, accuracy_loss)
+train_dataloader = load_data("train")
+model = load_model()
+optimizer = get_optimizer(model)
 
+train(train_dataloader, model, accuracy_loss, \
+        optimizer=optimizer)
+#test(test_dataloader, model, accuracy_loss)

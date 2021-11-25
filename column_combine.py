@@ -1,7 +1,7 @@
 import numpy as np
 
 """
-columnCombine:combine multiple sparse columns of the matrix into a group,
+columnCombine: Combine multiple sparse columns of the matrix into a group,
 each group has high density without serious value conflicts between columns
 
 Parameters:
@@ -68,13 +68,16 @@ def columnCombine(matrix, alpha=3, gamma=2):
 
 
 """
-structuredPruneMask get 
+structuredPruneMask: Get the mask of parameters pruned for eliminating column row conflicts 
 
 Parameters:
     matrix: Unstructured pruned sparse matrix
     Lowered from conv2d weight filters
-    e.g. matrix = array([1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12])
-    [1, 2, 3] is the first row of matrix
+    e.g. matrix = array([[1, 0, 2, 0, 3],
+                         [1, 1, 0, 0, 1],
+                         [1, 2, 0, 1, 0],
+                         [0, 0, 0, 1, 0]])
+    [1, 0, 2, 0, 3] is the first row of matrix
 
     groups: A list of column group
     Each group contains index of matrix columns packed in this group
@@ -85,7 +88,7 @@ Return value:
     A filter mask showing which values should be pruned after column combination
 """
 def structuredPruneMask(matrix, groups):
-    # Initialize mask2 to all-zero
+    # Initialize mask to all-zero
     mask = np.zeros_like(matrix)
     for group in groups:
         # Slice columns in the group to get submatrix
@@ -107,7 +110,10 @@ def structuredPruneMask(matrix, groups):
 """
 example usage of column combine APIs
 
-matrix = np.array([[1, 0, 2, 0, 3], [1, 1, 0, 0, 1], [1, 2, 0, 1, 0], [0, 0, 0, 1, 0]])
+matrix = np.array([[1, 0, 2, 0, 3],
+                   [1, 1, 0, 0, 1],
+                   [1, 2, 0, 1, 0],
+                   [0, 0, 0, 1, 0]])
 
 groups = columnCombine(matrix.T, 3, 1)
 

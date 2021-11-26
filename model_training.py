@@ -4,9 +4,8 @@ from torch.utils.data import DataLoader
 from torchvision import datasets
 from torchvision.transforms import ToTensor, Lambda, Compose
 import torch.nn.utils.prune as prune
-import torch.nn.functional as F
+import prune_method as customized_prune
 
-from column_combine import *
 batch_size = 32
 epoches = 300
 
@@ -32,42 +31,6 @@ def get_optimizer(model):
 
 accuracy_loss = nn.CrossEntropyLoss()
 
-class GroupPruneMethod(prune.BasePruningMethod):
-    PRUNING_TYPE = 'structured'
-    dim = -1
-
-    def compute_mask(self, t, default_mask):
-        matrix = t.reshape([t.shape[0], -1]).detach().numpy()
-        groups = columnCombine(matrix)
-        mask = structuredPruneMask(matrix, groups)
-        mask = torch.tensor(mask.reshape(t.shape))
-        return mask
-
-
-def group_prune_structured(module, name):
-    GroupPruneMethod.apply(module, name)
-    return module
-
-"""
-Test how to correctly use custom prune method
-
-class TrivialPruneMethod(prune.BasePruningMethod):
-    PRUNING_TYPE = 'structured'
-    dim = -1
-    def compute_mask(self, t, default_mask):
-        matrix = t.reshape([t.shape[0], -1]).detach().numpy()
-        mask = np.zeros_like(matrix)
-        mask[:, t.shape[1]**2:t.shape[1]**2 + 3] = 1
-        #print("matrix shape mask:\n", mask)
-        mask = torch.tensor(mask.reshape(t.shape))
-        #print("tensor shape mask:\n", mask)
-        return mask
-
-def trivial_prune_structured(module, name):
-    TrivialPruneMethod.apply(module, name)
-    return module
-"""
-
 def train(dataloader, model, loss_fn, optimizer, regularization=True, lambda1 = 1e-7):
     model.train()
     for epoch in range(epoches):
@@ -89,7 +52,7 @@ def train(dataloader, model, loss_fn, optimizer, regularization=True, lambda1 = 
                 if isinstance(module, torch.nn.Conv2d):
                     prune.l1_unstructured(module, name='weight', amount=0.2)
                     print("named buffer numbers\n", len(list(module.named_buffers())))
-                    group_prune_structured(module, name='weight')
+                    customized_prune.group_prune_structured(module, name='weight')
                     # trivial_prune_structured(module, name='weight')
                     print("named buffer numbers\n", len(list(module.named_buffers())))
         break

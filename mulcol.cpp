@@ -40,37 +40,33 @@ for (int k = 0; k < b_row; ++k)
         localB[k][j] = B[k * b_col + j];
 		localTag[k][j] = tag[k * b_col + j];
 	}
+
 systolic1:
-    for (int i = 0; i < a_row; i++) {
+for (int i = 0; i < a_row; i++) {
        #pragma HLS LOOP_TRIPCOUNT min=8 max=8
        #pragma HLS PIPELINE II=1
     systolic2:
 	float p_sum[MAX_SIZE][MAX_SIZE];
 #pragma HLS ARRAY_PARTITION variable = p_sum dim = 0 complete
-        for (int j = 0; j < MAX_SIZE; j++) {
+		for (int j = 0; j < MAX_SIZE; j++) {
         systolic3:
             for (int k = 0; k < MAX_SIZE; k++) {
-                int last = (k == 0) ? 0 : p_sum[k - 1][j];
-                int a_val;
-				switch(localTag[k][j]) {
-					case 0:
-						a_val = localA[i][k][0];
-						break;
-					case 1:
-						a_val = localA[i][k][1];
-						break;
-					case 2:
-						a_val = localA[i][k][2];
-						break;
+				int w_idx = localTag[k][j];
+				float a_val = 0;
+				float b_val = (k < b_row && j < b_col) ? localB[k][j] : 0;
+				for (int idx = 0; idx < comb; idx++) {
+				#pragma HLS UNROLL OFF 
+					a_val = (idx == w_idx) ? localA[i][k][idx] : a_val;
+					if (idx == comb - 1) {						
+						float last = (k == 0) ? 0 : p_sum[k - 1][j];
+						a_val = (i < a_row && k < a_col) ? a_val : 0;
+						p_sum[k][j] = last + a_val * b_val;
+					}
 				}
-				a_val = (i < a_row && k < a_col) ? a_val : 0;
-                float b_val = (k < b_row && j < b_col) ? localB[k][j] : 0;
-                p_sum[k][j] = last + a_val * b_val;
-            }
-                localC[i][j] = p_sum[MAX_SIZE - 1][j];
+			}
+			localC[i][j] = p_sum[MAX_SIZE - 1][j];
 	}
-    }
-
+}
 for (int i = 0; i < a_row; ++i)
     for (int j = 0; j < b_col; ++j)
         C[i * b_col + j] = localC[i][j];

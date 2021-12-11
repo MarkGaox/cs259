@@ -14,12 +14,12 @@ int main() {
 
     for (int i = 0; i < a_row; ++i)
         for (int k = 0; k < a_col; ++k)
-            A[i][k] = rand() % 5;
+            A[i][k] = rand() % 100 / 10.0;
     
     for (int k = 0; k < b_row; ++k) {
 		group[k] = comb;
 		for (int j = 0; j < b_col; ++j) {
-            B[k][j] = rand() % 5;
+            B[k][j] = rand() % 100 / 10.0;
 			tag[k][j] = rand() % comb;
 		}
 	}
@@ -30,8 +30,8 @@ int main() {
         for (int j = 0; j < b_col; ++j) {
             C_sw[i][j] = 0;
             for (int k = 0; k < a_col; ++k) {
-				if (tag[k / 3][j] == k % 3)
-					C_sw[i][j] += A[i][k] * B[k/3][j];
+				if (tag[k / comb][j] == k % comb)
+					C_sw[i][j] += A[i][k] * B[k / comb][j];
             }
             if (C_sw[i][j] != C[i][j])
                 cnt_error++;
@@ -39,10 +39,16 @@ int main() {
     if (cnt_error > 0) {
         std::cout << "error number: " << cnt_error << std::endl;
         std::cout << "test fail" << std::endl;
+	}
+	else {	
+        std::cout << "test pass" << std::endl;
+	}
 		std::cout << "matrix A:" << std::endl;
 		for (int i = 0; i < a_row; i++) {
 			for (int k = 0; k < a_col; k++) {
-				std::cout << A[i][k] << ", ";
+				std::cout << A[i][k];
+				if (k < a_col - 1)
+					std::cout << ", ";
 			}
 			std::cout << std::endl;
 		}
@@ -62,8 +68,4 @@ int main() {
 			}
 			std::cout << std::endl;
 		}
-
-    } else {
-        std::cout << "test pass" << std::endl;
-    }
 }

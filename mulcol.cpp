@@ -1,15 +1,15 @@
 #include "matmul.h"
 
-void matmul(int* A, int* B, int* C, int* group, int* tag) {
+void matmul(float* A, float* B, float* C, int* group, int* tag) {
 
 
-int localA[MAX_SIZE][MAX_SIZE][comb];
+float localA[MAX_SIZE][MAX_SIZE][comb];
 #pragma HLS ARRAY_PARTITION variable=localA dim = 1 complete
 
-int localB[MAX_SIZE][MAX_SIZE];
+float localB[MAX_SIZE][MAX_SIZE];
 #pragma HLS ARRAY_PARTITION variable=localB dim = 0 complete
 
-int localC[MAX_SIZE][MAX_SIZE];
+float localC[MAX_SIZE][MAX_SIZE];
 #pragma HLS ARRAY_PARTITION variable = localC dim = 2 complete
 
 int localGroup[MAX_SIZE];
@@ -45,7 +45,7 @@ systolic1:
        #pragma HLS LOOP_TRIPCOUNT min=8 max=8
        #pragma HLS PIPELINE II=1
     systolic2:
-	int p_sum[MAX_SIZE][MAX_SIZE];
+	float p_sum[MAX_SIZE][MAX_SIZE];
 #pragma HLS ARRAY_PARTITION variable = p_sum dim = 0 complete
         for (int j = 0; j < MAX_SIZE; j++) {
         systolic3:
@@ -64,7 +64,7 @@ systolic1:
 						break;
 				}
 				a_val = (i < a_row && k < a_col) ? a_val : 0;
-                int b_val = (k < b_row && j < b_col) ? localB[k][j] : 0;
+                float b_val = (k < b_row && j < b_col) ? localB[k][j] : 0;
                 p_sum[k][j] = last + a_val * b_val;
             }
                 localC[i][j] = p_sum[MAX_SIZE - 1][j];

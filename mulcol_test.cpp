@@ -4,13 +4,13 @@
 #include "matmul.h"
 
 int main() {
-    int A[a_row][a_col];
-	int B[b_row][b_col];
+    float A[a_row][a_col];
+	float B[b_row][b_col];
     int group[b_row];
 	int tag[b_row][b_col];
 	assert(a_col == b_row * comb);
-	int C[a_row][b_col];
-    int C_sw[a_row][b_col];
+	float C[a_row][b_col];
+    float C_sw[a_row][b_col];
 
     for (int i = 0; i < a_row; ++i)
         for (int k = 0; k < a_col; ++k)

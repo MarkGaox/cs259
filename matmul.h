@@ -5,4 +5,4 @@
 #define b_col 8
 #define comb 3
 
-void matmul(int* A, int* B, int* C, int* group, int* tag);
+void matmul(float* A, float* B, float* C, int* group, int* tag);

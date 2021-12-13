@@ -1,15 +1,29 @@
 import torch
 import torch.nn.utils.prune as prune
+import numpy as np
 from column_combine import *
+import math
 
 class GroupPruneMethod(prune.BasePruningMethod):
     PRUNING_TYPE = 'structured'
     dim = -1
+    array_size = 8
 
     def compute_mask(self, t, default_mask):
         matrix = t.reshape([t.shape[0], -1]).detach().numpy()
-        groups = columnCombine(matrix)
-        mask = structuredPruneMask(matrix, groups)
+        if matrix.shape[1] <= self.array_size:
+            matrixes = [matrix]
+        else:
+            remain = matrix.shape[1] % self.array_size
+            matrixes = np.hsplit(matrix[:, :matrix.shape[1] - remain], matrix.shape[1] // self.array_size)
+            if not remain == 0:
+                matrixes.append(matrix[:, matrix.shape[1] - remain:])
+        masks = []
+        for matrix in matrixes:
+            groups = columnCombine(matrix)
+            mask = structuredPruneMask(matrix, groups)
+            masks.append(mask)
+        mask = np.hstack(masks)
         mask = torch.tensor(mask.reshape(t.shape))
         return mask
 

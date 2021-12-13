@@ -61,9 +61,9 @@ def columnCombine(matrix, alpha=3, gamma=2):
         # with highest density after combination 
         else:
             best_group.append(idx)
-    print("groups are:")
-    for group in groups:
-        print(np.hstack([columns[idx] for idx in group]))
+    #print("groups are:")
+    #for group in groups:
+    #    print(np.hstack([columns[idx] for idx in group]))
     return groups
 
 

@@ -6,8 +6,8 @@ from torchvision.transforms import ToTensor, Lambda, Compose
 import torch.nn.utils.prune as prune
 import prune_method as customized_prune
 
-batch_size = 32
-epoches = 300
+batch_size = 128
+epoches = 100
 
 def load_data(task_type):
     if task_type == "train":
@@ -31,10 +31,16 @@ def get_optimizer(model):
 
 accuracy_loss = nn.CrossEntropyLoss()
 
+def save_model(model, epoch):
+    print('save model for epoch {}'.format(epoch))
+    torch.save(model, "./models/epoch_{}".format(epoch))
+
+
 def train(dataloader, model, loss_fn, optimizer, regularization=True, lambda1 = 1e-7):
     model.train()
     for epoch in range(epoches):
         print("epoch {} begins:".format(epoch))
+        save_model(model, 0)
         for batch, (X,y) in enumerate(dataloader):
             pred = model(X)
             loss = loss_fn(pred, y)
@@ -46,16 +52,14 @@ def train(dataloader, model, loss_fn, optimizer, regularization=True, lambda1 = 
             optimizer.step()
             if (batch % 10 ==0):
                 print("pass {}, loss is {}".format(batch, loss.item()))
-                break
-        if epoch == epoches/2 or True:
+        if epoch == epoches/2 :
             for name, module in model.named_modules():
                 if isinstance(module, torch.nn.Conv2d):
-                    prune.l1_unstructured(module, name='weight', amount=0.2)
-                    print("named buffer numbers\n", len(list(module.named_buffers())))
+                    prune.l1_unstructured(module, name='weight', amount=0.3)
                     customized_prune.group_prune_structured(module, name='weight')
                     # trivial_prune_structured(module, name='weight')
-                    print("named buffer numbers\n", len(list(module.named_buffers())))
-        break
+        if (epoch + 1) % 10 == 0:
+            save_model(model, epoch)
 
 def test(dataloader, model, loss_fn):
     size = len(dataloader.dataset)

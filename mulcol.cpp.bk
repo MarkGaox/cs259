@@ -1,0 +1,133 @@
+#include "matmul.h"
+
+void matmul(float* A, float* B, float* C, int* group, int* tag) {
+
+
+float localA[MAX_SIZE][MAX_SIZE][comb];
+#pragma HLS ARRAY_PARTITION variable=localA dim = 1 complete
+
+float localB[MAX_SIZE][MAX_SIZE];
+#pragma HLS ARRAY_PARTITION variable=localB dim = 0 complete
+
+float localC[MAX_SIZE][MAX_SIZE];
+#pragma HLS ARRAY_PARTITION variable = localC dim = 2 complete
+
+int localGroup[MAX_SIZE];
+#pragma HLS ARRAY_PARTITION variable = localGroup dim = 0 complete
+
+int localTag[MAX_SIZE][MAX_SIZE];
+#pragma HLS ARRAY_PARTITION variable = localTag dim = 0 complete
+
+for (int k = 0; k < b_row; ++k)
+	localGroup[k] = group[k];
+
+int group_idx = 0;
+int row_idx = 0;
+for (int k = 0; k < a_col; ++k) {
+	if (row_idx == localGroup[group_idx]) {
+		row_idx = 0;
+		group_idx += 1;
+	}
+	for (int i = 0; i < a_row; ++i) {
+	#pragma HLS UNROLL
+        localA[i][group_idx][row_idx] = A[i * a_col + k];
+	}
+	row_idx += 1;
+}
+
+for (int k = 0; k < b_row; ++k)
+    for (int j = 0; j < b_col; ++j) {
+        localB[k][j] = B[k * b_col + j];
+		localTag[k][j] = tag[k * b_col + j];
+	}
+
+int r_len = a_row * comb;
+
+int stmp[MAX_SIZE][MAX_SIZE];
+#pragma HLS ARRAY_PARTITION variable = stmp dim = 0 complete
+
+for (int k = 0; k < MAX_SIZE; k++)
+#pragma HLS UNROLL
+	for (int j = 0; j < MAX_SIZE; j++)
+		#pragma HLS UNROLL
+		stmp[k][j] = (-k - j) % comb;
+
+systolic1:
+for (int t = 0; t < r_len + 2 * MAX_SIZE - 2; t++) {
+	#pragma HLS PIPELINE II=1
+	
+	float p_sum[MAX_SIZE][MAX_SIZE];
+	#pragma HLS ARRAY_PARTITION variable = p_sum dim = 0 complete
+	float input[MAX_SIZE][MAX_SIZE];
+	#pragma HLS ARRAY_PARTITION variable = input dim = 0 complete
+	float a_val[MAX_SIZE][MAX_SIZE];
+	#pragma HLS ARRAY_PARTITION variable = a_val dim = 0 complete
+	float b_val[MAX_SIZE][MAX_SIZE];
+	#pragma HLS ARRAY_PARTITION variable = b_val dim = 0 complete
+
+	L1:for (int k = 0; k < MAX_SIZE; k++) {
+		for (int j = MAX_SIZE - 1; j >= 1; j--) {
+			input[k][j] = input[k][j - 1];
+		}
+	}
+	
+	L2:for (int k = 0; k < MAX_SIZE; k++) {
+		int cond = t - k;
+		if (cond >= 0 && cond < r_len) {
+			int idx1 = cond >> log_comb;
+			int idx2 = stmp[k][0];
+			input[k][0] = (k < b_row) ? localA[idx1][k][idx2] : 0;
+		}
+		else {
+			input[k][0] = 0;
+		}
+	}
+	
+	L3:for (int k = 0; k < MAX_SIZE; k++) {
+		for (int j = 0; j < MAX_SIZE; j++) {
+			if (stmp[k][j] == 0) {
+				a_val[k][j] = 0;
+				b_val[k][j] = (k < b_row && j < b_col) ? localB[k][j] : 0;
+			}
+			if (localTag[k][j] == stmp[k][j])
+				a_val[k][j] = input[k][j];
+		}
+	}
+
+	L4:for (int j = 0; j < MAX_SIZE; j++) {
+		for (int k = MAX_SIZE - 1; k >= 1; k--) {
+			// this is the bottleneck
+			if (stmp[k][j] == comb - 1) {
+			//if (t - k - j >= 0 && t - k - j < r_len)
+				p_sum[k][j] = p_sum[k - 1][j] + a_val[k][j] * b_val[k][j];
+			}
+		}
+	}
+
+	L5:for (int j = 0; j < MAX_SIZE; j++) {
+		if (stmp[0][j] == comb - 1) {
+		//if (t - j >= 0 && t - j < r_len) 
+			p_sum[0][j] = a_val[0][j] * b_val[0][j];
+		}
+	}
+
+	L6:for (int j = 0; j < MAX_SIZE; j++) {
+		int cond = t - j - (MAX_SIZE - 1);
+		//if (cond >= 0 && cond < r_len)
+		if (stmp[MAX_SIZE - 1][j] == comb - 1) {
+			int idx = cond >> log_comb;
+			localC[idx][j] = p_sum[MAX_SIZE - 1][j];
+		}
+	}
+
+	for (int k = 0; k < MAX_SIZE; k++)
+		for (int j = 0; j < MAX_SIZE; j++)
+			stmp[k][j] = (stmp[k][j] + 1) % comb;
+}
+
+for (int i = 0; i < a_row; ++i)
+    for (int j = 0; j < b_col; ++j)
+        C[i * b_col + j] = localC[i][j];
+
+return;
+}
